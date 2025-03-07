@@ -1,155 +1,103 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import turtle
 
-PART_OF_PATH = 'O'
-TRIED = '.'
-OBSTACLE = '+'
-DEAD_END = '-'
-FINISH = 'M'
+# Definição dos símbolos do labirinto
+PART_OF_PATH = 'O'  # Caminho correto
+TRIED = '.'          # Tentativa
+OBSTACLE = '+'       # Parede
+DEAD_END = '-'       # Caminho sem saída
+FINISH = 'M'         # Destino
 
 class Maze:
-    def __init__(self,mazeFileName):
-        rowsInMaze = 0
-        columnsInMaze = 0
+    def __init__(self, mazeFileName):
+        """Inicializa o labirinto a partir de um arquivo."""
         self.mazelist = []
-        mazeFile = open(mazeFileName,'r')
-        rowsInMaze = 0
-        for line in mazeFile:
-            rowList = []
-            col = 0
-            for ch in line[:-1]:
-                rowList.append(ch)
-                if ch == 'S':
-                    self.startRow = rowsInMaze
-                    self.startCol = col
-                col = col + 1
-            rowsInMaze = rowsInMaze + 1
-            self.mazelist.append(rowList)
-            columnsInMaze = len(rowList)
-
-        self.rowsInMaze = rowsInMaze
-        self.columnsInMaze = columnsInMaze
-        self.xTranslate = -columnsInMaze/2
-        self.yTranslate = rowsInMaze/2
+        with open(mazeFileName, 'r') as mazeFile:
+            for row, line in enumerate(mazeFile):
+                rowList = list(line.strip())  # Converte a linha em uma lista
+                if 'S' in rowList:
+                    self.startRow = row
+                    self.startCol = rowList.index('S')
+                self.mazelist.append(rowList)
+        
+        self.rowsInMaze = len(self.mazelist)
+        self.columnsInMaze = len(self.mazelist[0])
+        self.xTranslate = -self.columnsInMaze / 2
+        self.yTranslate = self.rowsInMaze / 2
+        
         self.t = turtle.Turtle()
-        self.t.shape('turtle')
         self.wn = turtle.Screen()
-        self.wn.setworldcoordinates(-(columnsInMaze-1)/2-.5,-(rowsInMaze-1)/2-.5,(columnsInMaze-1)/2+.5,(rowsInMaze-1)/2+.5)
+        self.wn.setworldcoordinates(-(self.columnsInMaze-1)/2-.5, 
+                                     -(self.rowsInMaze-1)/2-.5, 
+                                     (self.columnsInMaze-1)/2+.5, 
+                                     (self.rowsInMaze-1)/2+.5)
 
     def drawMaze(self):
-        self.t.speed(10)
+        """Desenha o labirinto na tela."""
+        self.t.speed(0)
         self.wn.tracer(0)
-        for y in range(self.rowsInMaze):
-            for x in range(self.columnsInMaze):
-                if self.mazelist[y][x] == OBSTACLE:
-                    self.drawCenteredBox(x+self.xTranslate,-y+self.yTranslate,'black')
-                if self.mazelist[y][x] == FINISH:
-                    self.drawCenteredBox(x+self.xTranslate,-y+self.yTranslate,'red')  
-        self.t.color('black')
-        self.t.fillcolor('blue')
+        for y, row in enumerate(self.mazelist):
+            for x, cell in enumerate(row):
+                if cell == OBSTACLE:
+                    self.drawCenteredBox(x, y, 'black')
+                elif cell == FINISH:
+                    self.drawCenteredBox(x, y, 'red')
         self.wn.update()
         self.wn.tracer(1)
 
-    def drawCenteredBox(self,x,y,color):
+    def drawCenteredBox(self, x, y, color):
+        """Desenha um quadrado preenchido na posição especificada."""
         self.t.up()
-        self.t.goto(x-.5,y-.5)
-        self.t.color(color)
-        self.t.fillcolor(color)
-        self.t.setheading(90)
+        self.t.goto(x + self.xTranslate - 0.5, -y + self.yTranslate - 0.5)
         self.t.down()
+        self.t.fillcolor(color)
         self.t.begin_fill()
-        for i in range(4):
+        for _ in range(4):
             self.t.forward(1)
             self.t.right(90)
         self.t.end_fill()
 
-    def moveTurtle(self,x,y):
-        self.t.up()
-        self.t.setheading(self.t.towards(x+self.xTranslate,-y+self.yTranslate))
-        self.t.goto(x+self.xTranslate,-y+self.yTranslate)
-
-    def dropBreadcrumb(self,color):
-        self.t.dot(10,color)
-
-    def updatePosition(self,row,col,val=None):
+    def updatePosition(self, row, col, val=None):
+        """Atualiza a posição do cursor e marca o caminho."""
         if val:
             self.mazelist[row][col] = val
-        self.moveTurtle(col,row)
+        self.t.up()
+        self.t.goto(col + self.xTranslate, -row + self.yTranslate)
+        self.t.down()
+        
+        colors = {PART_OF_PATH: 'green', TRIED: 'black', DEAD_END: 'red'}
+        if val in colors:
+            self.t.dot(10, colors[val])
 
-        if val == PART_OF_PATH:
-            color = 'green'
-        elif val == OBSTACLE:
-            color = 'red'
-        elif val == TRIED:
-            color = 'black'
-        elif val == DEAD_END:
-            color = 'red'
-        else:
-            color = None
-
-        if color:
-            self.dropBreadcrumb(color)
-
-    def isExit(self,row,col):
-        return (row == 0 or
-                row == self.rowsInMaze-1 or
-                col == 0 or
-                col == self.columnsInMaze-1 )
-
-    def __getitem__(self,idx):
+    def isExit(self, row, col):
+        """Verifica se a posição atual é uma saída."""
+        return row in {0, self.rowsInMaze-1} or col in {0, self.columnsInMaze-1}
+    
+    def __getitem__(self, idx):
         return self.mazelist[idx]
 
 
-def searchFrom(maze, startRow, startColumn):
-    # testa todas as 4 direções deste ponto até que se encontre um caminho livre.
-    # então trata de acordo com o que for encontrado:
-    #  1. achamos um obstáculo(muro), return false
-    maze.updatePosition(startRow, startColumn)
-    if maze[startRow][startColumn] == OBSTACLE :
+def searchFrom(maze, row, col):
+    """Busca recursivamente um caminho no labirinto."""
+    maze.updatePosition(row, col)
+    
+    if maze[row][col] in {OBSTACLE, TRIED, DEAD_END}:
         return False
-    #  2. Achamos um quadrado que já foi explorado, return false
-    if maze[startRow][startColumn] == TRIED or maze[startRow][startColumn] == DEAD_END:
-        return False
-    # 3. Achamos a minhoca, retorna ao início pintando o caminho A* de verde
-    if maze[startRow][startColumn] == FINISH :
-        maze.updatePosition(startRow, startColumn, PART_OF_PATH)
+    
+    if maze[row][col] == FINISH:
+        maze.updatePosition(row, col, PART_OF_PATH)
         return True
-    maze.updatePosition(startRow, startColumn, TRIED)
-    # Se não, usa um circuito lógico para testar todas as direções
-    found = searchFrom(maze, startRow-1, startColumn) or             searchFrom(maze, startRow+1, startColumn) or             searchFrom(maze, startRow, startColumn-1) or             searchFrom(maze, startRow, startColumn+1)
-    if found:
-        maze.updatePosition(startRow, startColumn, PART_OF_PATH)
-    else:
-        maze.updatePosition(startRow, startColumn, DEAD_END)
-    return found
+    
+    maze.updatePosition(row, col, TRIED)
+    
+    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        if searchFrom(maze, row + dr, col + dc):
+            maze.updatePosition(row, col, PART_OF_PATH)
+            return True
+    
+    maze.updatePosition(row, col, DEAD_END)
+    return False
 
-
+# Executando a busca no labirinto
 myMaze = Maze('maze.txt')
 myMaze.drawMaze()
-myMaze.updatePosition(myMaze.startRow,myMaze.startCol)
-
 searchFrom(myMaze, myMaze.startRow, myMaze.startCol)
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
